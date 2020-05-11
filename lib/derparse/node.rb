@@ -57,7 +57,7 @@ class DerParse
 		end
 
 		def value
-			raise IncompatibleDatatypeError
+			raise IncompatibleDatatypeError, "No known way to render tag #{@tag} into a value"
 		end
 
 		private
