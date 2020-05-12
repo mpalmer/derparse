@@ -41,9 +41,63 @@ to parse:
 p = DerParse.new("0\x81\x80\x02\x01\x2a\x04\x44\x65\x72\x50\x61\x72\x73\x65\x02\x01\x45\x6e\x69\x63\x65")
 ```
 
-{DerParse} has a number of instance methods to help you examine and work with
-the parsed ASN.1 data.  For example, you can get a string description of the
-data and its structure:
+If you've got multiple DER-encoded strings concatenated, that's no problem --
+`DerParse` will handle that.  If you're traversing, you'll get multiple nodes
+of depth `0`.
+
+The {`DerParse`} class has a number of instance methods to help you examine and
+work with the parsed ASN.1 data.
+
+
+## Traversing the entire DER tree
+
+If you want to examine every value in the DER, digging down into sequences
+and such, then you want `#traverse`.  It walks through every element of the DER, yielding
+a {`DerParse::Node`} for each ASN.1 object that is encountered.  When a constructed
+element (structure, set) is encountered, a node for the sequence or set will be
+yielded, followed by a node for each of the ASN.1 objects in the sequence of set.
+
+```ruby
+p.traverse do |node|
+  puts "Parsing depth: #{node.depth} Offset: #{node.offset}"
+  puts "Header length: #{node.header_length} Data length: #{node.data_length}"
+  puts "Tag number: #{node.tag} Tag class: #{node.tag_class} Constructed: #{node.constructed?.inspect}"
+  puts "Value: #{node.value rescue nil}"
+  puts "INCOMPLETE!" unless node.complete?
+end
+```
+
+If you call `#traverse` without a block, it'll return an `Enumerator`, which
+returns the next node in the DER structure for each call to `#next`.  It is
+more convenient when you want to construct parsing state machines.
+
+
+## Walking around nodes
+
+If you want more control about how you travel through the tree of nodes, you
+can get the first node in the DER tree with {`DerParse#first_node`}.  Every
+node has {`DerParse#next_node`} and {`DerParse#first_child`} methods, which do
+what they say on the tin.  In both cases, if there is no relevant node, a
+{`DerParse::Node::Nil`} will be returned.
+
+
+## Examining a node
+
+There are a whole bunch of methods which {`DerParse::Node`} has to help you
+query what sort of ASN.1 object you're dealing with.
+
+It's is particularly important to note the {`DerParse::Node#complete?`} method.
+Because `DerParse` tries to give you as much data as it can, even if the DER is
+incomplete or corrupt, it needs to let you know when the data it's passing back
+is known to not be "correct", in a strict sense.  What counts as an
+"incomplete" value, and what impact it has on the value of a given node, can
+get complicated.  For full details, see the documentation for
+{DerParse#traverse}.
+
+## Rendering as a string
+
+This is quite straightforward.  If a DER consists entirely of object types that
+`DerParse` knows how to decode into Ruby values, you can just use `#to_s`:
 
 ```ruby
 p.to_s   # => "long, multi-line string of something something"
@@ -55,42 +109,16 @@ which means, of course, that you can print it to screen:
 puts p
 ```
 
-If you want to process the data, you can use `#traverse` to walk
-through every element of the DER, which will yield a {`DerParse::Node`}
-for each ASN.1 object that is encountered, along with info about the
-parser state.
+If your DER contains an ASN.1 value that `DerParse` doesn't know how to
+render, you'll get a {`DerParse::IncompatibleDatatypeError`}.
 
-```ruby
-p.traverse do |node, depth, offset|
-  puts "Parsing depth: #{depth} Offset: #{offset}"
-  puts "Header length: #{node.header_length} Data length: #{node.data_length}"
-  puts "Tag number: #{node.tag} Tag class: #{node.tag_class} Constructed: #{node.constructed?}"
-  puts "Value: #{node.value}"
-  puts "INCOMPLETE!" unless node.complete?
-end
-```
+## A collection of Ruby objects
 
-There are a whole bunch of methods which {`DerParse::Node`} has to help you
-query what sort of ASN.1 object you're dealing with.  It also handles a string
-in which there are multiple ASN.1 objects encoded sequentially.
-
-It's is particularly important to note the {`DerParse::Node#complete?`} method.
-Because `DerParse` tries to give you as much data as it can, even if the DER is
-incomplete or corrupt, it needs to let you know when the data it's passing back
-is known to not be "correct", in a strict sense.  What counts as an
-"incomplete" value, and what impact it has on the value of a given node, can
-get complicated.  For full details, see the documentation for
-{DerParse#traverse}.
-
-If you call `#traverse` without a block, it'll return an iterator, which allows
-you to be more flexible with your iteration, like constructing complicated handlers
-for parsed DER structures.
-
-Finally, you can try {`DerParse#to_a`}.  This attempts to turn a DER blob into
+For this, you can use {`DerParse#to_a`}.  This attempts to turn a DER blob into
 a collection of Ruby objects.  It handles many common ASN.1 data types,
 including integers, octet and bit strings, sequences and sets (turns them into
 arrays), and so on.  If it hits an ASN.1 type it can't handle, it'll give up
-and raise {`DerParse::IncompatibleDataTypeError`}.
+and raise {`DerParse::IncompatibleDatatypeError`}.
 
 
 # Compatibility and Coverage
@@ -99,8 +127,9 @@ The parts of ASN.1 that `DerParse` best supports are those which I've needed
 for my own purposes -- mainly sequences, integers, octet strings, and to a
 lesser extent OIDs.  In particular, it's important to note that `DerParse` is
 for ***DER*** structures, so any BER-specific things like indefinite lengths
-are not, and probably will not, be supported.  Support for additional ASN.1
-types are welcomed via a well-tested PR.
+are not, and probably will never, be supported.  Support for rendering
+additional ASN.1 types into specific Ruby objects are welcomed via a
+well-tested PR.
 
 
 # Security

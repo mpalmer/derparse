@@ -16,6 +16,14 @@ class DerParse
 					end
 				end
 			end
+
+			def first_child
+				if @data.empty?
+					DerParse::Node::Nil.new
+				else
+					DerParse::Node.factory(@data)
+				end
+			end
 		end
 	end
 end

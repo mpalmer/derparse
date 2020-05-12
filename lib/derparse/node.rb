@@ -25,6 +25,7 @@ class DerParse
 				@rest = parse_data(r)
 			rescue IncompleteDer
 				@complete = false
+				@rest = ""
 			end
 		end
 
@@ -54,6 +55,18 @@ class DerParse
 
 		def complete?
 			@complete
+		end
+
+		def next_node
+			if @rest.empty?
+				DerParse::Node::Nil.new
+			else
+				DerParse::Node.factory(@rest)
+			end
+		end
+
+		def first_child
+			DerParse::Node::Nil.new
 		end
 
 		def value
@@ -138,5 +151,6 @@ end
 
 require_relative "./node/integer"
 require_relative "./node/octet_string"
+require_relative "./node/nil"
 require_relative "./node/null"
 require_relative "./node/sequence"

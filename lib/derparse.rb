@@ -34,6 +34,10 @@ class DerParse
 		end
 	end
 
+	def first_node
+		node(@s, 0, 0) { |n| return n }
+	end
+
 	private
 
 	def node(der, depth, offset, &blk)
