@@ -6,7 +6,7 @@ class DerParse
 
 	def initialize(s)
 		if s.respond_to?(:to_str)
-			@s = s.to_str
+			@s = s.to_str.dup.force_encoding("BINARY")
 		else
 			raise ArgumentError,
 			      "Must provide string to parse"
@@ -32,6 +32,32 @@ class DerParse
 				r = n.rest
 			end
 		end
+	end
+
+	def resync(tag, strict: true)
+		i = @s.index(tag)
+
+		until i.nil?
+			n = DerParse::Node.factory(@s[i..], offset: i)
+
+			if n.complete?
+				if !strict || n.next_node.nil?
+					return n
+				else
+					nn = n.next_node
+					while nn.complete? && !nn.next_node.nil?
+						nn = nn.next_node
+					end
+					if nn.complete?
+						return n
+					end
+				end
+			end
+
+			i = (ni = @s[i+1..].index(tag)) ? ni + i + 1: nil
+		end
+
+		DerParse::Node::Nil.new
 	end
 
 	def first_node

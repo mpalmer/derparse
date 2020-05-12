@@ -94,6 +94,31 @@ is known to not be "correct", in a strict sense.  What counts as an
 get complicated.  For full details, see the documentation for
 {DerParse#traverse}.
 
+
+## Finding objects in a corrupted DER
+
+If you're working with a string that is missing its beginning, or has its early
+parts corrupted, you can try using the {`DerParse#resync`} method to try and "resync"
+the parser, based on knowing that an object of a particular type is in there
+*somewhere*.
+
+It works by looking for an encoded ASN.1 object of a type you specify, and returning
+a node instance for that object, which you can then traverse using `#next_node`
+and `#first_child` (as appropriate).
+
+There is always the risk of a false-positive when using `#resync`, so you
+should never 100% trust the values it gives back.  However, to try and minimise
+the risk, we assume that the ASN.1 object you're looking for is complete (not
+truncated), and that the rest of the string is valid DER.  This means that all
+of the lengths remaining in the DER must line up, which isn't particularly
+likely to happen at random.
+
+The downside of this validation approach is that if the corruption extends to
+having extra "garbage" data at the end of the DER, then `#resync` won't find
+anything.  You can turn this off by passing `strict: false` to `#resync`, but
+be aware that your false positive rate will skyrocket.
+
+
 ## Rendering as a string
 
 This is quite straightforward.  If a DER consists entirely of object types that
